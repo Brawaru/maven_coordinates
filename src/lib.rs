@@ -16,7 +16,7 @@ const EXTENSION_SPLITTER: &str = ".";
 const DEFAULT_SEPARATOR: char = '/';
 
 /// Standard Maven Coordinates.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Coordinates {
     group_id: String,
     artifact_id: String,
@@ -24,19 +24,6 @@ pub struct Coordinates {
     version_label: Option<String>,
     packaging: String,
     classifier: Option<String>,
-}
-
-impl Clone for Coordinates {
-    fn clone(&self) -> Self {
-        Self {
-            group_id: self.group_id.clone(),
-            artifact_id: self.artifact_id.clone(),
-            version: self.version.clone(),
-            version_label: self.version_label.clone(),
-            packaging: self.packaging.clone(),
-            classifier: self.classifier.clone(),
-        }
-    }
 }
 
 impl ToString for Coordinates {
