@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Provides a struct and parser for the Maven Coordinates."
 authors = ["Brawaru"]
 license = "MIT"
-license-file = "LICENCE"
 edition = "2018"
 publish = false
 
