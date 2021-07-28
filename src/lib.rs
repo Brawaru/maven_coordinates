@@ -18,12 +18,106 @@ const DEFAULT_SEPARATOR: char = '/';
 /// Standard Maven Coordinates.
 #[derive(Debug, Clone)]
 pub struct Coordinates {
-    group_id: String,
-    artifact_id: String,
-    version: String,
-    version_label: Option<String>,
-    packaging: String,
-    classifier: Option<String>,
+    /// Per Maven documentation, group ID uniquely identifies the project among all the other
+    /// projects. It should, but not required to, follow [Java package name rules][java-naming].
+    ///
+    /// Essentially, it's just an identifier of the group that created the project (their owned
+    /// domain) and at times, name of the projects group (like `utilities`, `core`).
+    ///
+    /// [java-naming]: https://docs.oracle.com/javase/specs/jls/se6/html/packages.html#7.7
+    ///
+    /// # Examples
+    ///
+    /// - `org.apache.commons`
+    /// - `com.mojang`
+    /// - `io.github.brawaru.plugins`
+    ///
+    /// # Usage
+    ///
+    /// Group ID is used to resolve location of the artifact directory, both locally and remotely.
+    /// All the dots are replaced with case-specific path separator. For example, `com.mojang` will
+    /// became `com/mojang/` when resolving remote path to the artifact.
+    pub group_id: String,
+
+    /// Per Maven documentation, artifact ID is generally the name that the project is known by.
+    /// It has to be all lower-case and contain no "strange symbols" (dashes are allowed).
+    ///
+    /// # Examples
+    ///
+    /// - `commons-lang3`
+    /// - `jackson-core`
+    /// - `shadow`
+    ///
+    /// # Usage
+    ///
+    /// Paired with Group ID, artifact ID should generate unique identifier for the whole project.
+    /// Artifact ID is also used to determine name of the file (excluding version and classifier)
+    /// and the subdirectory that contains all the versions directories.
+    pub artifact_id: String,
+
+    /// Per Maven documentation, this is the version of the artifact itself. It's recommended to
+    /// follow [semantic versioning](https://semver.org/), but again, not required to (not outside
+    /// the Maven Central Repository, at least).
+    ///
+    /// # Library note
+    ///
+    /// This library follows semantic versioning, therefore it will denote version label to the
+    /// version itself. To denote version label, at last dash (`-`) within the version, the split
+    /// will be made, where everything before the dash will make it into the [`version`][0], and
+    /// anything that follows it into the [`version_label`][1]. To get complete version, including
+    /// the label, you'll have to use [`full_version`][2] method.
+    ///
+    /// [0]: Coordinates::version
+    /// [1]: Coordinates::version_label
+    /// [2]: Coordinates::full_version
+    ///
+    /// # Usage
+    ///
+    /// Version used both in the name of the artifact file, as well as separating directory.
+    pub version: String,
+
+    /// Denoted by last dash in version part of the coordinates, label for this version (if any).
+    ///
+    /// To get complete version, including the label itself, use [`full_version`][0] method.
+    ///
+    /// [0]: Coordinates::full_version
+    ///
+    /// # Examples
+    ///
+    /// - `SNAPSHOT` to refer to constantly changing snapshot.
+    /// - `rc1` to refer to first release candidate.
+    ///
+    /// # Usage
+    ///
+    /// Version label used in the name of the artifact file, following the version.
+    pub version_label: Option<String>,
+
+    /// Packaging is essentially an extension of the artifact. If not specified in coordinates,
+    /// it is assumed to be `jar`.
+    ///
+    /// # Examples
+    ///
+    /// - `jar` is the default, when not specified.
+    /// - `jar.sha1` to get file with SHA-1 for the original JAR file.
+    /// - `pom` to get the POM of the artifact.
+    ///
+    /// # Usage
+    ///
+    /// Packaging is used as an extension when resolving the artifact file name.
+    pub packaging: String,
+
+    /// Per Maven documentation, a classifier distinguishes artifacts that were built from the
+    /// same POM but differ in content.
+    ///
+    /// # Examples
+    ///
+    /// - `jdk8`
+    /// - `jdk11`
+    ///
+    /// # Usage
+    ///
+    /// Classifier is added after the version number when resolving the artifact file name.
+    pub classifier: Option<String>,
 }
 
 impl ToString for Coordinates {
@@ -32,17 +126,17 @@ impl ToString for Coordinates {
 
         let mut string = String::new();
 
-        string += self.group_id();
+        string += &self.group_id;
 
         string += MAVEN_COORDINATES_SPLITTER;
-        string += self.artifact_id();
+        string += &self.artifact_id;
 
         string += MAVEN_COORDINATES_SPLITTER;
         string += self.full_version().as_str();
 
         if !self.packaging.eq(MAVEN_STANDARD_PACKAGING) || self.classifier.is_some() {
             string += MAVEN_COORDINATES_SPLITTER;
-            string += self.packaging();
+            string += &self.packaging;
 
             if let Some(classifier) = &self.classifier {
                 string += MAVEN_COORDINATES_SPLITTER;
@@ -55,7 +149,6 @@ impl ToString for Coordinates {
 }
 
 impl Coordinates {
-
     /// Creates new coordinates struct from the coordinates string.
     ///
     /// # Arguments
@@ -187,7 +280,7 @@ impl Coordinates {
         let mut file_name = self.file_basename().to_string();
 
         file_name += EXTENSION_SPLITTER;
-        file_name += self.packaging();
+        file_name += &self.packaging;
 
         file_name
     }
@@ -195,7 +288,7 @@ impl Coordinates {
     /// Converts coordinates to the path string with default separator (`/`).
     ///
     /// returns: String
-    pub fn as_path(&self) -> String {
+    pub fn to_path(&self) -> String {
         self.as_path_with_separator(DEFAULT_SEPARATOR)
     }
 
@@ -223,7 +316,7 @@ impl Coordinates {
             path.push(separator);
         }
 
-        path.push_str(self.artifact_id());
+        path.push_str(&self.artifact_id);
         path.push(separator);
 
         path.push_str(self.full_version().as_str());
@@ -258,176 +351,8 @@ impl Coordinates {
             maven_location += "/";
         }
 
-        maven_location += &self.as_path();
+        maven_location += &self.to_path();
 
         maven_location
-    }
-
-    /// Returns group ID part of the coordinates.
-    ///
-    /// returns: &str
-    pub fn group_id(&self) -> &str {
-        &self.group_id
-    }
-
-    /// Returns artifact ID part of the coordinates.
-    ///
-    /// returns: &str
-    pub fn artifact_id(&self) -> &str {
-        &self.artifact_id
-    }
-
-    /// Returns version from of the artifact (excluding label).
-    ///
-    /// returns: &str
-    pub fn version(&self) -> &str {
-        &self.version
-    }
-
-    /// Returns version label of the artifact.
-    ///
-    /// returns: &str
-    pub fn version_label(&self) -> &Option<String> {
-        &self.version_label
-    }
-
-    /// Returns packaging of the artifact (e.g. `jar`).
-    ///
-    /// returns: &str
-    pub fn packaging(&self) -> &str {
-        &self.packaging
-    }
-
-    /// Returns classifier of the artifact.
-    ///
-    /// returns: &str
-    pub fn classifier(&self) -> &Option<String> {
-        &self.classifier
-    }
-
-    /// Sets the group ID part of the coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `group_id`: new group ID.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use maven_coordinates::Coordinates;
-    ///
-    /// let mut artifact = Coordinates::new("io.github.brawaru:artifact:1.0.0").unwrap();
-    ///
-    /// artifact.set_group_id("io.github.brawarufixes");
-    /// artifact.as_path();
-    /// // => "io/github/brawarufixes/artifact/1.0.0/artifact-1.0.0.jar"
-    /// ```
-    pub fn set_group_id<S: Into<String>>(&mut self, group_id: S) {
-        self.group_id = group_id.into();
-    }
-
-    /// Sets the artifact ID part of the coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `artifact_id`: new artifact ID.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use maven_coordinates::Coordinates;
-    ///
-    /// let mut artifact = Coordinates::new("io.github.brawaru:artifact:1.0.0").unwrap();
-    ///
-    /// artifact.set_artifact_id("fixed-artifact");
-    /// artifact.as_path();
-    /// // => "io/github/brawaru/fixed-artifact/1.0.0/fixed-artifact-1.0.0.jar"
-    /// ```
-    pub fn set_artifact_id<S: Into<String>>(&mut self, artifact_id: S) {
-        self.artifact_id = artifact_id.into();
-    }
-
-    /// Sets the version of the artifact by coordinates (excluding label).
-    ///
-    /// # Arguments
-    ///
-    /// * `version`: new version of the artifact (excluding label).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use maven_coordinates::Coordinates;
-    ///
-    /// let mut artifact = Coordinates::new("io.github.brawaru:artifact:1.0.0").unwrap();
-    ///
-    /// artifact.set_version("1.0.1");
-    /// artifact.as_path();
-    /// // => "io/github/brawaru/artifact/1.0.1/artifact-1.0.1.jar"
-    /// ```
-    pub fn set_version<S: Into<String>>(&mut self, version: S) {
-        self.version = version.into();
-    }
-
-    /// Sets the version label of the artifact by coordinates (excluding version itself).
-    ///
-    /// # Arguments
-    ///
-    /// * `version_qualifier`: new version label (excluding version itself).
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use maven_coordinates::Coordinates;
-    ///
-    /// let mut artifact = Coordinates::new("io.github.brawaru:artifact:1.0.0").unwrap();
-    ///
-    /// artifact.set_version_label(Some("-HOTFIX"));
-    /// artifact.as_path();
-    /// // => "io/github/brawaru/artifact/1.0.0-HOTFIX/artifact-1.0.0-HOTFIX.jar"
-    /// ```
-    pub fn set_version_label<S: Into<String>>(&mut self, version_qualifier: Option<S>) {
-        self.version_label = version_qualifier.map_or(None, |q| Some(q.into()));
-    }
-
-    /// Sets the packaging of the artifact by coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `packaging`: new packaging of the artifact.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use maven_coordinates::Coordinates;
-    ///
-    /// let mut artifact = Coordinates::new("io.github.brawaru:artifact:1.0.0").unwrap();
-    ///
-    /// artifact.set_packaging("jar.sha1");
-    /// artifact.as_path();
-    /// // => "io/github/brawaru/artifact/1.0.0/artifact-1.0.0.jar.sha1"
-    /// ```
-    pub fn set_packaging<S: Into<String>>(&mut self, packaging: S) {
-        self.packaging = packaging.into();
-    }
-
-    /// Sets the classifier of the artifact by coordinates.
-    ///
-    /// # Arguments
-    ///
-    /// * `classifier`: new classifier of the artifact.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use maven_coordinates::Coordinates;
-    ///
-    /// let mut artifact = Coordinates::new("io.github.brawaru:artifact:1.0.0").unwrap();
-    ///
-    /// artifact.set_classifier(Some("jdk11"));
-    /// artifact.as_path();
-    /// // => "io/github/brawaru/artifact/1.0.0/artifact-1.0.0-jdk11.jar"
-    /// ```
-    pub fn set_classifier<S: Into<String>>(&mut self, classifier: Option<S>) {
-        self.classifier = classifier.map_or(None, |s| Some(s.into()));
     }
 }
