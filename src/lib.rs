@@ -4,7 +4,7 @@ use std::io::ErrorKind;
 const MAVEN_COORDINATES_SPLITTER: &str = ":";
 
 /// Standard packaging used by Maven if no packaging is provided in the coordinates.
-const MAVEN_STANDARD_PACKAGING: &str = "jar";
+pub const MAVEN_STANDARD_PACKAGING: &str = "jar";
 
 /// Splitter used to separate artifact name from version and classifier in file name.
 const FILENAME_SPLITTER: &str = "-";
