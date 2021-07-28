@@ -356,3 +356,83 @@ impl Coordinates {
         maven_location
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Coordinates;
+    use std::io::ErrorKind;
+
+    #[test]
+    fn it_parses_all_values() {
+        let result = Coordinates::new("id.group:artifact-id:1.0.0-SNAPSHOT:ext:classifier")
+            .expect("Parsing failed");
+
+        assert_eq!(result.group_id, "id.group");
+        assert_eq!(result.artifact_id, "artifact-id");
+        assert_eq!(result.version, "1.0.0");
+        assert_eq!(
+            result.version_label.expect("Version label not parsed"),
+            "SNAPSHOT"
+        );
+        assert_eq!(result.packaging, "ext");
+        assert_eq!(
+            result.classifier.expect("Classifier not parsed"),
+            "classifier"
+        );
+    }
+
+    #[test]
+    fn it_parses_partial_values() {
+        let result = Coordinates::new("id.group:artifact-id:1.0.0").expect("Parsing failed");
+
+        assert_eq!(result.group_id, "id.group");
+        assert_eq!(result.artifact_id, "artifact-id");
+        assert_eq!(result.version, "1.0.0");
+        assert!(result.version_label.is_none());
+        assert_eq!(result.packaging, crate::MAVEN_STANDARD_PACKAGING);
+        assert!(result.classifier.is_none());
+    }
+
+    #[test]
+    fn it_requires_general_data() {
+        let result = Coordinates::new("id.group:artifact-id");
+        let result = result.expect_err("Parsing should fail");
+
+        assert_eq!(result, ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn it_resolves_file_name_all() {
+        let result =
+            Coordinates::new("id.group:artifact-id:1.0.0-SNAPSHOT:ext:classifier").unwrap();
+
+        assert_eq!(
+            result.file_basename(),
+            "artifact-id-1.0.0-SNAPSHOT-classifier"
+        );
+
+        assert_eq!(
+            result.file_name(),
+            "artifact-id-1.0.0-SNAPSHOT-classifier.ext"
+        );
+    }
+
+    #[test]
+    fn it_resolves_file_name_partial() {
+        let result = Coordinates::new("id.group:artifact-id:1.0.0").unwrap();
+
+        assert_eq!(result.file_basename(), "artifact-id-1.0.0");
+        assert_eq!(result.file_name(), "artifact-id-1.0.0.jar");
+    }
+
+    #[test]
+    fn it_resolves_path() {
+        let result =
+            Coordinates::new("id.group:artifact-id:1.0.0-SNAPSHOT:ext:classifier").unwrap();
+
+        assert_eq!(
+            result.to_path(),
+            "id/group/artifact-id/1.0.0-SNAPSHOT/artifact-id-1.0.0-SNAPSHOT-classifier.ext"
+        );
+    }
+}
