@@ -16,7 +16,7 @@ const EXTENSION_SPLITTER: &str = ".";
 const DEFAULT_SEPARATOR: char = '/';
 
 /// Standard Maven Coordinates.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Coordinates {
     /// Per Maven documentation, group ID uniquely identifies the project among all the other
     /// projects. It should, but not required to, follow [Java package name rules][java-naming].
